@@ -1,97 +1,26 @@
 #include <iostream>
 #include <string>
+#include "ctype.h"
 #include <vector>
 #include <random>
 #include <tuple>
 
 /*
     This is a script that simulates a tic-tac-toe game between the user and the computer.
-    For the first version, the AI will make a random move per turn AKA not be smart.
-
-    For latter versions, the AI wil be smart.
-
-    The purpose of this very simple project is to familiarize myself more with C++.
+    This current version uses minimax algorithim to select the best move possible, always resulting in a draw or losses.
 */
 using namespace std;
 
 class Board
 {
-private:
-    string board[3][3] = {
-        {"1", "2", "3"},
-        {"4", "5", "6"},
-        {"7", "8", "9"}};
-    vector<int> possibleMoves = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-    tuple<int, int, string> recentMove;
-    vector<int>::iterator moveIndex(int move)
-    {
-        int shift;
-        for (int i = 0; i < possibleMoves.size(); i++)
-        {
-            if (possibleMoves[i] == move)
-            {
-                shift = i;
-                break;
-            }
-        }
-        return possibleMoves.begin() + shift;
-    }
-    string winningSymbol;
-    string boardStatus = "in_progress";
 
 public:
-    Board() {}
+    using Grid = vector<vector<char>>;
+    using GridRow = vector<char>;
 
-    void insertMove(int move, string symbol)
+    Board()
     {
-        possibleMoves.erase(moveIndex(move));
-        int row = move / 3;
-        int col;
-        if (row == 3)
-        {
-            row--;
-            col = 2;
-        }
-        else if (move == (3 * row))
-        {
-            row--;
-            col = 2;
-        }
-        else
-        {
-            col = move - 3 * row - 1;
-        }
-
-        recentMove = make_tuple(row, col, symbol);
-
-        board[row][col] = symbol;
-
-        if (!boardComplete())
-        {
-            if (hasWinner())
-            {
-                int row, col;
-                string symbol;
-                tie(row, col, symbol) = recentMove;
-                winningSymbol = symbol;
-                boardStatus = "complete";
-            }
-        }
-        else
-        {
-            if (hasWinner())
-            {
-                int row, col;
-                string symbol;
-                tie(row, col, symbol) = recentMove;
-                winningSymbol = symbol;
-                boardStatus = "complete";
-            }
-            else
-            {
-                boardStatus = "Draw";
-            }
-        }
+        getMoves();
     }
 
     void displayBoard()
@@ -101,257 +30,318 @@ public:
             cout << "|";
             for (int j = 0; j < 3; j++)
             {
-                cout << board[i][j] << "|";
+                cout << ticTacToeBoard[i][j] << "|";
             }
             cout << "\n";
         }
     }
 
-    vector<int> getMoves()
+    GridRow getMoves()
     {
-        return possibleMoves;
+        GridRow positions = {};
+        for (GridRow row : ticTacToeBoard)
+        {
+            for (char val : row)
+            {
+                if (isdigit(val))
+                {
+                    positions.push_back(val);
+                }
+            }
+        }
+        return positions;
     }
 
-    bool boardComplete()
+    void insertMove(char move, char piece)
     {
-        if (static_cast<int>(possibleMoves.size()) == 0)
+        for (int i = 0; i < ticTacToeBoard.size(); i++)
+        {
+            for (int j = 0; j < ticTacToeBoard[i].size(); j++)
+            {
+                if (ticTacToeBoard[i][j] == move)
+                {
+                    ticTacToeBoard[i][j] = piece;
+                    return;
+                }
+            }
+        }
+    }
+
+    bool winnerExists()
+    {
+        // Check horizontal
+        for (GridRow row : ticTacToeBoard)
+        {
+            char val = row[0];
+            bool rowUniform = true;
+            for (int i = 1; i < row.size(); i++)
+            {
+                if (row[i] != val)
+                {
+                    rowUniform = false;
+                }
+            }
+            if (rowUniform)
+            {
+                return true;
+            }
+        }
+
+        // Check Vertical
+        for (int j = 0; j < ticTacToeBoard[0].size(); j++)
+        {
+            char val = ticTacToeBoard[0][j];
+            bool colUniform = true;
+            for (int i = 1; i < ticTacToeBoard.size(); i++)
+            {
+                if (ticTacToeBoard[i][j] != val)
+                {
+                    colUniform = false;
+                }
+            }
+            if (colUniform)
+            {
+                return true;
+            }
+        }
+
+        // Check Diagonal
+        bool diagUniform = true;
+        for (int i = 1; i < ticTacToeBoard.size(); i++)
+        {
+            if (ticTacToeBoard[i][i] != ticTacToeBoard[0][0])
+            {
+                diagUniform = false;
+            }
+        }
+        if (diagUniform)
         {
             return true;
         }
+
+        // Check Anti-Diagonal
+        bool antiDiagUniform = true;
+        for (int i = 1; i < ticTacToeBoard.size(); i++)
+        {
+            int j = ticTacToeBoard[i].size() - 1 - i;
+            if (ticTacToeBoard[i][j] != ticTacToeBoard[0][ticTacToeBoard[0].size() - 1])
+            {
+                antiDiagUniform = false;
+            }
+        }
+        if (antiDiagUniform)
+        {
+            return true;
+        }
+
         return false;
     }
 
-    tuple<int, int, string> getRecentMove()
+    bool boardFull()
     {
-        return recentMove;
-    }
-
-    bool hasWinner()
-    {
-        /*
-        By having the recent move, we can check if the win condition is satisfied by checking
-        if:
-            the same row is filled of the same symbol
-            the same col is filled of the same symbol
-            the diag is filled of the same symbol
-            the anti-diag is filled of the same symbol
-        */
-
-        bool winnerExists = true;
-
-        int row, col;
-        string symbol;
-        tie(row, col, symbol) = recentMove;
-
-        // Row check
-        for (int j = 1; j < 3; j++)
+        for (GridRow row : ticTacToeBoard)
         {
-            if (board[row][j] != board[row][j - 1])
+            for (char val : row)
             {
-                winnerExists = false;
+                if (isdigit(val))
+                {
+                    return false;
+                }
             }
         }
-
-        if (winnerExists)
-        {
-            return winnerExists;
-        }
-
-        winnerExists = true;
-        // col check
-        for (int j = 1; j < 3; j++)
-        {
-            if (board[j][col] != board[j - 1][col])
-            {
-                winnerExists = false;
-            }
-        }
-
-        if (winnerExists)
-        {
-            return winnerExists;
-        }
-
-        winnerExists = true;
-        // Diag
-        for (int j = 1; j < 3; j++)
-        {
-            if (board[j][j] != board[j - 1][j - 1])
-            {
-                winnerExists = false;
-            }
-        }
-
-        if (winnerExists)
-        {
-            return winnerExists;
-        }
-
-        winnerExists = true;
-        // anti-diag
-        for (int j = 1; j < 3; j++)
-        {
-            if (board[j][2 - j] != board[j - 1][2 - j + 1])
-            {
-                winnerExists = false;
-            }
-        }
-
-        return winnerExists;
+        return true;
     }
 
-    string getWinner()
+    void clear()
     {
-        return winningSymbol;
+        ticTacToeBoard = {{'1', '2', '3'},
+                          {'4', '5', '6'},
+                          {'7', '8', '9'}};
     }
 
-    string getStatus()
-    {
-        return boardStatus;
-    }
+private:
+    Grid ticTacToeBoard = {{'1', '2', '3'},
+                           {'4', '5', '6'},
+                           {'7', '8', '9'}};
 };
 
-class AI
+class Player
 {
 private:
-    string symbol;
-    default_random_engine generator;
+    int score;
 
-public:
-    AI(string Symbol) : generator(random_device{}()), symbol(Symbol) {}
-
-    void makeMove(Board &board)
+    tuple<int, char> minimax(Board &state, bool maximizing_player, char move)
     {
-        vector<int> possibleMoves = board.getMoves();
-        int numMoves = static_cast<int>(possibleMoves.size());
-        uniform_int_distribution<int> dist(0, numMoves - 1);
-        int selectedMove = possibleMoves[dist(generator)];
-        board.insertMove(selectedMove, symbol);
-    }
-};
-
-class Game
-{
-private:
-    tuple<int, int> scoreboard = make_tuple(0, 0);
-    bool gameRunning;
-    Board tt_board;
-    Board &board = tt_board;
-    string player;
-    string ai;
-    AI computer;
-
-public:
-    Game(string PlayerSymbol, string AISymbol) : player(PlayerSymbol), ai(AISymbol), computer(ai), gameRunning(true)
-    {
-    }
-
-    void setGameEnd()
-    {
-        gameRunning = false;
-    }
-
-    bool isGameRunning()
-    {
-        return gameRunning;
-    }
-
-    void displayScoreBoard()
-    {
-        cout << "\nYou: " << get<0>(scoreboard) << " Computer: " << get<1>(scoreboard) << "\n";
-    }
-
-    bool checkBoard(Board &board)
-    {
-        string boardStatus = board.getStatus();
-        cout << boardStatus << "\n";
-        if (boardStatus == "complete")
+        // Check if terminal and respond accordingly
+        if (state.winnerExists())
         {
-            setGameEnd();
-            string winStatus = board.getWinner();
-            if (winStatus == player)
+            if (!maximizing_player)
             {
-                // Update scoreboard
-                get<0>(scoreboard) += 1;
-                cout << "\nYou've Won!\n";
+                return make_tuple(1, move);
             }
             else
             {
-                // Update scoreboard
-                get<1>(scoreboard) += 1;
-                cout << "\nComputer Wins!\n";
+                return make_tuple(-1, move);
             }
-            displayScoreBoard();
-            return true;
         }
-        if (boardStatus == "Draw")
+
+        if (state.boardFull())
         {
-            setGameEnd();
-            cout << "\nA Draw!\n";
-            displayScoreBoard();
-            return true;
+            return make_tuple(0, move);
         }
-        return false;
+
+        vector<char> possibleMoves = state.getMoves();
+
+        if (maximizing_player)
+        {
+            int max_val = -2;
+            char bestMove = '0';
+            for (char move : possibleMoves)
+            {
+                Board newState = state;
+                newState.insertMove(move, 'X');
+                int state_score;
+                char chosen_move;
+                tie(state_score, chosen_move) = minimax(newState, !maximizing_player, move);
+                if (state_score > max_val)
+                {
+                    max_val = state_score;
+                    bestMove = move;
+                }
+            }
+            return make_tuple(max_val, bestMove);
+        }
+        else
+        {
+            int min_val = 2;
+            char bestMove = '0';
+            for (char move : possibleMoves)
+            {
+                Board newState = state;
+                newState.insertMove(move, 'O');
+                int state_score;
+                char chosen_move;
+                tie(state_score, chosen_move) = minimax(newState, !maximizing_player, move);
+                if (state_score < min_val)
+                {
+                    min_val = state_score;
+                    bestMove = move;
+                }
+            }
+            return make_tuple(min_val, bestMove);
+        }
     }
 
-    void runGame()
+public:
+    Player(char symbol, Board &gameBoard) : piece(symbol), gameBoard(gameBoard), score(0) {}
+
+    int getScore()
     {
-        // Board &board = tt_board;
-        board.displayBoard();
-        // Player moves first
-        int move;
-        cout << "\nEnter board position: ";
-        cin >> move;
-        board.insertMove(move, player);
-        if (checkBoard(board))
-        {
-            return;
-        }
-        computer.makeMove(board);
-        if (checkBoard(board))
-        {
-            board.displayBoard();
-            return;
-        }
+        return score;
     }
 
-    void startNewGame()
+    void updateScore()
     {
-        tt_board = Board();
-        board = tt_board;
-        gameRunning = true;
+        score++;
+    }
+
+    virtual void makeMove()
+    {
+        int state_score;
+        char chosen_move;
+
+        tie(state_score, chosen_move) = minimax(gameBoard, false, '0');
+        gameBoard.insertMove(chosen_move, piece);
+
+        // vector<char> availableMoves = gameBoard.getMoves();
+        // random_device rd;
+        // mt19937 gen(rd());
+        // uniform_int_distribution<> distrib(0, availableMoves.size());
+
+        // int randomPosition = distrib(gen);
+        // gameBoard.insertMove(availableMoves[randomPosition], piece);
+    }
+
+protected:
+    char piece;
+    Board &gameBoard;
+};
+
+class HumanPlayer : public Player
+{
+public:
+    HumanPlayer(char symbol, Board &gameBoard) : Player(symbol, gameBoard) {}
+
+    void makeMove()
+    {
+        cout << "Please Enter a Board Position: ";
+        char pos;
+        cin >> pos;
+        gameBoard.insertMove(pos, piece);
     }
 };
 
 int main()
 {
-    // Board tt_board;
-    // Board &board = tt_board;
-    // AI computer;
-    // // bool gameRunning = true;
 
-    string player = "X";
-    string computer = "O";
+    bool hasGameEnded = false;
+    Board gameBoard;
+    Board &test = gameBoard;
+    HumanPlayer user('X', gameBoard);
+    Player computer('O', gameBoard);
 
-    Game ttt(player, computer);
-
-    bool continueRound = true;
-    while (continueRound)
+    while (!hasGameEnded)
     {
-        while (ttt.isGameRunning())
+        char answer;
+        bool roundOver = false;
+        gameBoard.displayBoard();
+        user.makeMove();
+        if (gameBoard.winnerExists())
         {
-            ttt.runGame();
+            roundOver = true;
+            // User Won!
+            user.updateScore();
+            cout << "You Won!!!" << endl;
         }
-        cout << "\nDo you want to keep playing? (y/n)";
-        string answer;
+        else if (gameBoard.boardFull())
+        {
+            roundOver = true;
+            // A draw
+            cout << "A draw!" << endl;
+        }
+        else
+        {
+            computer.makeMove();
+            if (gameBoard.winnerExists())
+            {
+                roundOver = true;
+                // Computer Won!
+                computer.updateScore();
+                cout << "AI wins!" << endl;
+            }
+            else if (gameBoard.boardFull())
+            {
+                roundOver = true;
+                // A draw
+                cout << "A draw!" << endl;
+            }
+            else
+            {
+                continue;
+            }
+        }
+        cout << "ScoreBoard\nYou: " << user.getScore() << " AI: " << computer.getScore() << endl;
+        gameBoard.displayBoard();
+        cout << "Would You like to continue playing?: ";
         cin >> answer;
-        cout << "\n";
-        if (answer == "n")
+        if (answer != 'y')
         {
-            continueRound = false;
-            break;
+            hasGameEnded = true;
         }
-        ttt.startNewGame();
+        else
+        {
+            gameBoard.clear();
+        }
     }
 
     return 0;
